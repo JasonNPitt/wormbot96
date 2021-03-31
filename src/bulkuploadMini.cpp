@@ -16,11 +16,13 @@
 #define TRANSMITTED_ON 1
 #define GFP_ON 1
 #define CHERRY_ON 1
+#define UV_ON 1
 #define TIMELAPSE_ON 1
 #define DAILY_MONITOR_ON -2
 
 #define GFP_OFF 0
 #define CHERRY_OFF 0
+#define UV_OFF 0
 #define TRANSMITTED_OFF 0
 #define TIMELAPSE_OFF 0
 #define DAILY_MONITOR_OFF -1
@@ -31,15 +33,16 @@
 #define WELL 2
 #define TIMELAPSE 3
 #define DAILYMONITOR 4
-#define ACTIVATEGFP 5
-#define ACTIVATECHERRY 6
-#define EMAIL 7
-#define INVESTIGATOR 8
-#define TITLE 9
-#define DESCRIPTION 10
-#define STARTN 11
-#define AGE 12
-#define STRAIN 13
+#define ACTIVATEUV 5
+#define ACTIVATEGFP 6
+#define ACTIVATECHERRY 7
+#define EMAIL 8
+#define INVESTIGATOR 9
+#define TITLE 10
+#define DESCRIPTION 11
+#define STARTN 12
+#define AGE 13
+#define STRAIN 14
 
 
 
@@ -620,6 +623,12 @@ void processALine(string csvdataline){
 			case DAILYMONITOR:
 				{			
 				if (token.find("1") != std::string::npos) oss << DAILY_MONITOR_ON << ","; else oss << DAILY_MONITOR_OFF << ",";
+				}
+			break;
+
+			case ACTIVATEUV:
+				{
+				if (token.find("1") != std::string::npos) oss << UV_ON << ","; else oss << UV_OFF << ",";
 				}
 			break;
 
