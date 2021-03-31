@@ -622,7 +622,7 @@ int main(int argc, char **argv) {
 		while (getline(plateform,formline)){
 			ss << formline;
         }
-    	for (int i=0; i < 12; i++) {
+    	for (int i=0; i < 96; i++) {
     		string tempr=ss.str();
     		stringstream number;
     		number << i;
