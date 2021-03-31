@@ -100,6 +100,7 @@ using namespace LibSerial;
 #define BRIGHTFIELD 1
 #define GFP 2
 #define CHERRY 3
+#define UV 4
 
 #define ACCEPTABLE_JITTER 2
 #define JITTER_WAIT 500
@@ -408,6 +409,7 @@ public:
 	int plate;
 	int rank;
 	bool transActive;
+	int activeUV;
 	int activeGFP;
 	int activeCherry; 
 	bool timelapseActive;
@@ -447,6 +449,8 @@ public:
 		timelapseActive = atoi(token.c_str());
 		getline(ss, token, ',');
 		monitorSlot = atoi(token.c_str());
+		getline(ss, token, ',');
+		activeUV = atoi(token.c_str());
 		getline(ss, token, ',');
 		activeGFP = atoi(token.c_str());
 		getline(ss, token, ',');
@@ -545,7 +549,7 @@ public:
     	stringstream ss;
     	ss << expID << "," << status << "," << plate << "," << wellname << "," << xval
 				<< "," << yval<< "," << directory
-    			<< "," << timelapseActive << "," << monitorSlot << "," <<
+    			<< "," << timelapseActive << "," << monitorSlot << "," << activeUV << "," <<
 			activeGFP << "," << activeCherry << "," 
 			<< email
     			<< "," << investigator << "," << title << "," << description << "," << startingN
@@ -613,6 +617,7 @@ public:
 		ofile << wellname << endl;
 		ofile << activeGFP << endl;
 		ofile << activeCherry << endl;
+		ofile << activeUV << endl;
 		ofile << "****************************************************************\n";
 		ofile << "::br::" << endl;
 		ofile.close();
@@ -656,16 +661,20 @@ public:
 	int incrementFrame(int SOURCEFLAG){
 	//code determines when to implement the frame counter
 	
-		if (SOURCEFLAG == BRIGHTFIELD && !activeGFP && !activeCherry){
+		if (SOURCEFLAG == BRIGHTFIELD && !activeGFP && !activeCherry && !activeUV){
 		currentframe++;
 		return(1);
 		}
 
-		if (SOURCEFLAG == GFP && !activeCherry){
+		if (SOURCEFLAG == GFP && !activeCherry && !activeUV){
 			currentframe++;
 			return(1);		
 		}
-		if (SOURCEFLAG == CHERRY){
+		if (SOURCEFLAG == CHERRY && !activeUV){
+			currentframe++;
+			return(1);
+		}
+		if (SOURCEFLAG == UV){
 			currentframe++;
 			return(1);
 		}
@@ -681,6 +690,11 @@ public:
 
 	int setCherryparams(void){
 		setupCamera("Cherry.config");
+
+	}//end setCherryParams
+
+	int setUVparams(void){
+		setupCamera("UV.config");
 
 	}//end setCherryParams
 
@@ -764,7 +778,7 @@ public:
 			Mat lastframe;
 			Mat im2_aligned;
 
-			stringstream filename,gfpFilename,cherryFilename;
+			stringstream filename,gfpFilename,cherryFilename, uvFilename;
 			stringstream lastfilename;
 			stringstream number;
 			number << setfill('0') << setw(6) << currentframe;
@@ -773,6 +787,7 @@ public:
 			filename << directory << "frame" << number.str() << ".png";
 			gfpFilename << directory << "GFP" << number.str() << ".png";
 			cherryFilename << directory << "cherry" << number.str() << ".png";
+			uvFilename << directory << "UV" << number.str() << ".png";
 
 			// for first frame try to find a pink bead and if found generate a loc-nar.csv file
 			cout << "wellname:" << wellname << " currentframe:" << currentframe << endl;
@@ -976,6 +991,15 @@ public:
 
 	}//end captureCherry
 
+	int capture_UV(int doaligner){
+		try {
+			incrementFrame(UV);
+		} catch (cv::Exception ex) {
+			cout << " UVframe was bad! try again" << endl;
+			return (0);
+		} //end caught exception trying to load
+
+	}//end captureUV
 
 
 	int captureVideo(Timer* limitTimer) {
@@ -1258,6 +1282,13 @@ void setCherry(int intensity){
 
 }//end set lamp
 
+void setUV(int intensity){
+	stringstream ls;
+	ls << "UL" << intensity;
+	sendCommand(ls.str());
+
+}//end set lamp
+
 void chordBeep(double octave){
 	stringstream beeper;
 	cout << (int)((double)370 * octave);
@@ -1500,7 +1531,18 @@ void scanExperiments(void) {
 				
 			}
 			setCherry(0);
-		}//end if gfp active
+		}//end if cherry active
+		if (thisWell->status == WELL_STATE_ACTIVE && thisWell->activeUV) {
+			thisWell->gotoWell();
+			
+			setUV(255);
+			int captured = 0;
+			while (captured != 1) {
+				captured = thisWell->capture_UV(align);
+				
+			}
+			setUV(0);
+		}//end if uv active
 	}//end for each well
 }//end scanExperiments
 
@@ -1869,6 +1911,7 @@ int main(int argc, char** argv) {
 		sendCommand("IL0");
 		sendCommand("GL0");
 		sendCommand("CL0");
+		sendCommand("UL0");
 
 		robotfound=true;
 
