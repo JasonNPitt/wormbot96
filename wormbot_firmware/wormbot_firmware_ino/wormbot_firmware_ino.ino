@@ -60,7 +60,7 @@
 #define dirPinX 24
 #define ENX 41
 
-#define MINMS 3 //11
+#define MINMS 11 //11
 
 #define NEGATIVE 0
 #define POSITIVE 1
@@ -349,7 +349,7 @@ void zero_all_axes(void){
     //if (!topZero) 
     if (!checkLimit(TXMIN)) digitalWrite(stpT, HIGH);
     //if (!botZero) 
-    if (!checkLimit(BXMIN)) digitalWrite(stpB, HIGH);
+   // if (!checkLimit(BXMIN)) digitalWrite(stpB, HIGH);
 
    
     delayMicroseconds(MINMS);
@@ -357,14 +357,14 @@ void zero_all_axes(void){
    //if (!topZero) 
     if (!checkLimit(TXMIN)) digitalWrite(stpT, LOW);
     //if (!botZero) 
-    if (!checkLimit(BXMIN)) digitalWrite(stpB, LOW);
+    //if (!checkLimit(BXMIN)) digitalWrite(stpB, LOW);
 
     
     delayMicroseconds(MINMS);
     
 
         
-    if (checkLimit(TXMIN) && checkLimit(BXMIN)) {
+    if (checkLimit(TXMIN)) {
      //Serial.println("all are zero");
         done=true;
     }
@@ -382,20 +382,20 @@ void zero_all_axes(void){
    // if (!leftZero) 
     if (!checkLimit(LYMIN)) digitalWrite(stpL, HIGH); 
    // if (!rightZero) 
-    if (!checkLimit(RYMIN)) digitalWrite(stpR, HIGH);
+   // if (!checkLimit(RYMIN)) digitalWrite(stpR, HIGH);
    
     delayMicroseconds(MINMS);
 
    // if (!leftZero) 
     if (!checkLimit(LYMIN)) digitalWrite(stpL, LOW); 
    // if (!rightZero) 
-    if (!checkLimit(RYMIN)) digitalWrite(stpR, LOW);
+   // if (!checkLimit(RYMIN)) digitalWrite(stpR, LOW);
     
     delayMicroseconds(MINMS);
     
 
         
-    if (checkLimit(LYMIN) && checkLimit(RYMIN)) {
+    if (checkLimit(LYMIN)) {
      //Serial.println("all are zero");
         done=true;
     }

@@ -42,7 +42,7 @@
 #include <opencv/cv.hpp>
 #include <opencv2/videoio.hpp>
 
-//#include <pylon/PylonIncludes.h>
+#include <pylon/PylonIncludes.h>
 
 
 #include "constants.h"
@@ -56,7 +56,7 @@ uint8_t *buffer;
 
 using namespace std;
 using namespace LibSerial;
-//using namespace Pylon;
+using namespace Pylon;
 
 
 
@@ -125,11 +125,11 @@ streambuf *coutbuf = std::cout.rdbuf(); //save old buf
 string VERSION = "Release 1.03";
 
 //pylon stuff
-/*
+
 int pylonCameraActive = 0;
 CGrabResultPtr ptrGrabResult; //grabptr
 const uint8_t *pImageBuffer; //ptr to image  capture buffer
-*/
+
 
 
 int calibration_counter=0;
@@ -1301,7 +1301,7 @@ void chordBeep(double octave){
 	beeper << "beep  -l 3333 -f " << (int)((double)554 * octave);  //c#
 	system(beeper.str().c_str());
 }//end chord beep
-/*
+
 int setupPylonCamera(void){
 	try {
 		CInstantCamera camera(CTlFactory::GetInstance().CreateFirstDevice()); //the camera device
@@ -1319,7 +1319,7 @@ int setupPylonCamera(void){
 	}//end exception caught
 }//end setupPylonCamera
 
-*/ 
+ 
 
 void sendEmail(string emailaddress, string mailsubject, string messagebody){
 	stringstream cmdline;
@@ -1490,7 +1490,7 @@ void scanExperiments(void) {
 	//int count = 0;
 
 	// sort wells
-	std::sort(wells.begin(), wells.end(), rank_sort());
+	//std::sort(wells.begin(), wells.end(), rank_sort());
 
 	for (vector<Well*>::iterator citer = wells.begin(); citer != wells.end(); citer++) {
 		//int captured = 0;
@@ -1876,10 +1876,10 @@ int main(int argc, char** argv) {
 
 	
 	
-	//cout << "Init Pylon runtime" << endl;
-	//PylonInitialize();
-	//cout << "Setup Pylon Camera" << endl;
-	//setupPylonCamera();
+	cout << "Init Pylon runtime" << endl;
+	PylonInitialize();
+	cout << "Setup Pylon Camera" << endl;
+	setupPylonCamera();
 
 
 	int portnum = 0;

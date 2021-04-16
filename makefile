@@ -8,12 +8,12 @@ CFLAGS = -v -g -w -Wall -Wpedantic -O0 -std=c++11
 OPENCV_LIB = -lopencv_ml -lopencv_objdetect -lopencv_shape -lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_calib3d -lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_imgcodecs -lopencv_video -lopencv_photo -lopencv_imgproc -lopencv_flann -lopencv_core
 
 # libraries
-LIB = -L/usr/local/lib -lserial -L/usr/lib/x86_64-linux-gnu   
+LIB = -L/usr/local/lib -lserial -L/usr/lib/x86_64-linux-gnu -L/opt/pylon/lib  
 
 # -lcgicc
 
 # includes
-INC = -I/usr/include -I/usr/local/include   #-I/usr/local/include/opencv2 -I/usr/local/include/opencv 
+INC = -I/usr/include -I/usr/local/include -I/opt/pylon/include 
 
 grab: src/grab.cpp
 	$(CXX) $(CFLAGS) src/grab.cpp $(LIB) $(OPENCV_LIB) -o bin/grab
@@ -23,7 +23,7 @@ alignerd: src/alignerd.cpp
 	$(CXX) $(CFLAGS) src/alignerd.cpp $(LIB) $(OPENCV_LIB) -o bin/alignerd
 
 controller: src/controller.cpp
-	$(CXX) $(CFLAGS) src/controller.cpp $(LIB) $(OPENCV_LIB) -o bin/controller
+	$(CXX) $(CFLAGS) src/controller.cpp $(LIB) $(OPENCV_LIB) -lpylonbase -lpylonutility -lGenApi_gcc_v3_1_Basler_pylon -lGCBase_gcc_v3_1_Basler_pylon -o bin/controller
 
 rapidscan: src/rapidscan.cpp
 	$(CXX) $(CFLAGS) src/rapidscan.cpp $(LIB) $(OPENCV_LIB) -o bin/rapidscan
