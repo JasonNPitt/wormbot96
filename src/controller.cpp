@@ -43,6 +43,9 @@
 #include <opencv2/videoio.hpp>
 
 #include <pylon/PylonIncludes.h>
+#include <GenApi/GenApi.h>;
+#include <pylon/BaslerUniversalInstantCamera.h>
+
 
 
 #include "constants.h"
@@ -57,6 +60,7 @@ uint8_t *buffer;
 using namespace std;
 using namespace LibSerial;
 using namespace Pylon;
+using namespace GenApi;
 
 
 
@@ -101,6 +105,11 @@ using namespace Pylon;
 #define GFP 2
 #define CHERRY 3
 #define UV 4
+
+#define CAPTURE_BF 0
+#define CAPTURE_GFP 1
+#define CAPTURE_CHERRY 2
+#define CAPTURE_UV 3
 
 #define ACCEPTABLE_JITTER 2
 #define JITTER_WAIT 500
@@ -412,6 +421,10 @@ public:
 	int activeUV;
 	int activeGFP;
 	int activeCherry; 
+	int exposureBF;
+	int exposureGFP;
+	int exposureCherry;
+	int exposureUV;
 	bool timelapseActive;
 	int monitorSlot;
 	string wellname;
@@ -1001,6 +1014,129 @@ public:
 
 	}//end captureUV
 
+	int capture_pylon(int doaligner, int channel){
+
+		// Number of images to be grabbed.
+		static const uint32_t c_countOfImagesToGrab = 1;
+		int gotit = 0;
+
+		  try
+		    {
+			// Create an instant camera object with the camera device found first.
+			//CInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice());
+			CBaslerUniversalInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice() );
+			INodeMap& nodemap = camera.GetNodeMap();
+			camera.Open();
+			// Get camera device information.
+			cout << "Camera Device Information" << endl
+			    << "=========================" << endl;
+			cout << "Vendor           : "
+			    << CStringParameter( nodemap, "DeviceVendorName" ).GetValue() << endl;
+			cout << "Model            : "
+			    << CStringParameter( nodemap, "DeviceModelName" ).GetValue() << endl;
+			cout << "Firmware version : "
+			    << CStringParameter( nodemap, "DeviceFirmwareVersion" ).GetValue() << endl << endl;
+
+			  // Camera settings.
+        cout << "Camera Device Settings" << endl
+            << "======================" << endl;
+
+
+       // Set the AOI:
+
+       // Get the integer nodes describing the AOI.
+        CIntegerParameter offsetX( nodemap, "OffsetX" );
+        CIntegerParameter offsetY( nodemap, "OffsetY" );
+        CIntegerParameter width( nodemap, "Width" );
+        CIntegerParameter height( nodemap, "Height" );
+	CFloatParameter exposure(nodemap, "ExposureTime");
+
+        
+        exposure.SetValue(100000.0);
+       
+
+        cout << "OffsetX          : " << offsetX.GetValue() << endl;
+        cout << "OffsetY          : " << offsetY.GetValue() << endl;
+        cout << "Width            : " << width.GetValue() << endl;
+        cout << "Height           : " << height.GetValue() << endl;
+
+
+			
+		
+			// Print the model name of the camera.
+			cout << "Using device " << camera.GetDeviceInfo().GetModelName() << endl;
+
+		
+			// The parameter MaxNumBuffer can be used to control the count of buffers
+			// allocated for grabbing. The default value of this parameter is 10.
+			camera.MaxNumBuffer = 5;
+
+			//camera.ExposureMode.SetValue(ExposureMode_Timed);
+			cout << "USB:" << camera.IsUsb() << " GigE:" << camera.IsGigE() << endl;
+
+			
+
+
+			// Start the grabbing of c_countOfImagesToGrab images.
+			// The camera device is parameterized with a default configuration which
+			// sets up free-running continuous acquisition.
+			camera.StartGrabbing( c_countOfImagesToGrab);
+
+			// This smart pointer will receive the grab result data.
+			CGrabResultPtr ptrGrabResult;
+
+			// Camera.StopGrabbing() is called automatically by the RetrieveResult() method
+			// when c_countOfImagesToGrab images have been retrieved.
+			while ( !gotit )
+			{
+			    // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
+			    camera.RetrieveResult( 5000, ptrGrabResult, TimeoutHandling_ThrowException);
+
+			    // Image grabbed successfully?
+			    if (ptrGrabResult->GrabSucceeded())
+			    {
+				// Access the image data.
+				cout << "SizeX: " << ptrGrabResult->GetWidth() << endl;
+				cout << "SizeY: " << ptrGrabResult->GetHeight() << endl;
+				const uint8_t *pImageBuffer = (uint8_t *) ptrGrabResult->GetBuffer();
+				cout << "Gray value of first pixel: " << (uint32_t) pImageBuffer[0] << endl << endl;
+				//camera.StopGrabbing();
+				cout << "Frame#" << gotit << endl;
+
+				stringstream number,filename;
+				number << setfill('0') << setw(6) << currentframe;
+				recordTemp(number.str());
+				filename << directory << "frame" << number.str() << ".png";
+
+				CImagePersistence::Save( ImageFileFormat_Png, filename.str().c_str(), ptrGrabResult );				
+				gotit++;
+				incrementFrame(BRIGHTFIELD);//success increment the frame counter if needed
+				return 1;
+
+			    }
+			    else
+			    {
+				cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
+			    }
+			}//end while
+		    }
+		    catch (const GenericException &e)
+		    {
+			// Error handling.
+			cerr << "An exception occurred." << endl
+			<< e.GetDescription() << endl;
+			return 0;
+			
+		    }
+			
+
+	}//end capture_pylon
+
+//what changed
+//how are you feeling about living with sarah
+//its not your job to tak care of her
+
+
 
 	int captureVideo(Timer* limitTimer) {
 
@@ -1503,7 +1639,7 @@ void scanExperiments(void) {
 			setLamp(255);
 			int captured = 0;
 			while (captured != 1) {
-				captured = thisWell->capture_frame(align);
+				captured = thisWell->capture_pylon(align, CAPTURE_BF);
 				
 			}
 			setLamp(0);
@@ -1879,7 +2015,7 @@ int main(int argc, char** argv) {
 	cout << "Init Pylon runtime" << endl;
 	PylonInitialize();
 	cout << "Setup Pylon Camera" << endl;
-	setupPylonCamera();
+	//setupPylonCamera();
 
 
 	int portnum = 0;
