@@ -70,6 +70,7 @@ using namespace GenApi;
 
 #define PORT "/dev/ttyACM0" //This is system-specific"/tmp/interceptty" we need to make this configurable
 
+#define DEFAULTFOCUS 3000
 
 #define MAX_PLATES 12
 #define MAX_WELLS 12
@@ -116,6 +117,11 @@ using namespace GenApi;
 #define CALIBRATE_FREQ 200 //number of scans between calibration runs, 144 once per day
 
 #define FRAMECYCLE 50 //sets a number of frames to grab from the camera for each still, often the first frames a garbage as the camera adjusts lighting
+
+#define NEGATIVE 0
+#define POSITIVE 1
+#define WINDOWSIZE 10
+#define STARTSTEPS 128
 
 
 
@@ -415,6 +421,7 @@ public:
 	long expID;
 	long xval;
 	long yval;
+	long zval; //store the last focal plane
 	int plate;
 	int rank;
 	bool transActive;
@@ -500,6 +507,9 @@ public:
 		//set default target locks to -1
 		targetx=-1;
 		targety=-1;
+
+		//set default focus point
+		zval = DEFAULTFOCUS;
 
 		//check for presence of a loc-nar file
 		string locfile;
@@ -1014,20 +1024,210 @@ public:
 
 	}//end captureUV
 
+
+		
+	double getFocusMeasure(void){
+		
+
+			// Number of images to be grabbed.
+			static const uint32_t c_countOfImagesToGrab = 1;
+			int gotit = 0;
+
+			
+
+			  try
+			    {
+						
+				// Create an instant camera object with the camera device found first.
+				//CInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice());
+				CBaslerUniversalInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice() );
+				INodeMap& nodemap = camera.GetNodeMap();
+				camera.Open();
+		
+	       // Set the AOI:
+
+	       // Get the integer nodes describing the AOI.
+		CIntegerParameter offsetX( nodemap, "OffsetX" );
+		CIntegerParameter offsetY( nodemap, "OffsetY" );
+		CIntegerParameter width( nodemap, "Width" );
+		CIntegerParameter height( nodemap, "Height" );
+		CFloatParameter exposure(nodemap, "ExposureTime");
+		CFloatParameter gamma(nodemap, "Gamma");
+
+		
+		exposure.SetValue(340.0);
+		gamma.SetValue(0.55);
+	       
+
+			
+				// The parameter MaxNumBuffer can be used to control the count of buffers
+				// allocated for grabbing. The default value of this parameter is 10.
+				camera.MaxNumBuffer = 5;
+
+				
+
+
+				// Start the grabbing of c_countOfImagesToGrab images.
+				// The camera device is parameterized with a default configuration which
+				// sets up free-running continuous acquisition.
+				camera.StartGrabbing( c_countOfImagesToGrab);
+
+				// This smart pointer will receive the grab result data.
+				CGrabResultPtr ptrGrabResult;
+
+				// Camera.StopGrabbing() is called automatically by the RetrieveResult() method
+				// when c_countOfImagesToGrab images have been retrieved.
+
+				bool infocus = false;
+				int focuscounter = 0;
+
+				while ( !gotit )
+				{
+					
+				    // Wait for an image and then retrieve it. A timeout of 100 ms is used.
+				    camera.RetrieveResult( 100, ptrGrabResult, TimeoutHandling_ThrowException);
+
+				    // Image grabbed successfully?
+				    if (ptrGrabResult->GrabSucceeded())
+				    {
+					
+					const uint8_t *pImageBuffer = (uint8_t *) ptrGrabResult->GetBuffer();
+					
+					
+					gotit++;
+					
+					//convert ptrGRab to CV Mat
+					CPylonImage target;
+					Mat dst;
+
+					    CImageFormatConverter converter;
+					    converter.OutputPixelFormat=PixelType_Mono8;
+					    //converter.OutputBitAlignment=OutputBitAlignment_MsbAligned;
+
+					    converter.Convert(target,ptrGrabResult);
+
+					    Mat src_gray(target.GetHeight(),target.GetWidth(),CV_8UC1,target.GetBuffer(),Mat::AUTO_STEP);
+					  
+
+					    if(src_gray.empty())
+					    {
+						cout << "Nope" << endl;
+						return -1;
+					    }
+					    
+
+					//just use the center of the image
+					Rect roi(2236, 1324, 1000, 1000);
+					Mat cropped(src_gray, roi);
+					
+					//compute focus lap var
+					int kernel_size = 11;
+					int scale = 1;
+					int delta = 0;
+					Laplacian(cropped, dst, CV_64F,kernel_size,scale, delta);
+					Scalar mu, sigma;
+					meanStdDev(dst, mu, sigma);
+					double focusMeasure = sigma.val[0] * sigma.val[0];
+					cout << u8"\033[2J\033[1;1H"; 
+					cout << "focus lapVar = :" << focusMeasure << endl;
+					return (focusMeasure);
+					
+
+				    }
+				    else
+				    {
+					cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
+					return -1;
+				    }
+					
+				}//end while
+			    }
+			    catch (const GenericException &e)
+			    {
+				// Error handling.
+				cerr << "An exception occurred." << endl
+				<< e.GetDescription() << endl;
+				return -1;
+				
+			    }
+
+	}//end getfocusmeasure
+
+
+	void focusCamera(void){
+
+		int zdir = NEGATIVE;
+		vector <double> focusvalues;
+		vector <long> zvals; 
+		int zstepsize = STARTSTEPS;
+		int zwindow = WINDOWSIZE;
+		long zstart = zval - ((zwindow * zstepsize)/2); 
+
+
+		//gotowell goes to current Z value, grab images and measure focus around current Z
+		//set to max defocus the scan through previous focal point
+
+		stringstream cmd("");
+		cmd << "M" << xval << "," << yval << "," << zstart;
+		sendCommand(cmd.str());
+		cmd.str("");
+		
+		//coarse focus
+		for (int i=0; i < zwindow; i++){
+		
+			long znext = zstart + (i * zstepsize);
+			
+			focusvalues.push_back(getFocusMeasure());
+			cmd << "M" << xval << "," << yval << "," << zstart;
+			sendCommand(cmd.str());
+			cmd.str("");
+			double thefocus = getFocusMeasure();
+			focusvalues.push_back(thefocus);
+			zvals.push_back(znext);
+
+			cout << znext << "," << thefocus << endl;
+			
+		
+
+		}//end for each image
+
+
+		zstepsize=16; //0.5 of actual microstep size 32usteps
+		//fine focus
+		for (int i=0; i < zwindow; i++){
+			
+			
+			
+		
+
+		}//end for each image
+
+
+
+	}//end focus camera
+
 	int capture_pylon(int doaligner, int channel){
+
+		//cout << "cap pylon" << endl;
 
 		// Number of images to be grabbed.
 		static const uint32_t c_countOfImagesToGrab = 1;
 		int gotit = 0;
 
+		vector<int> compression_params;
+		compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION); //(CV_IMWRITE_PXM_BINARY);
+		compression_params.push_back(0);
+
 		  try
 		    {
+					cout << "try pylon" << endl;
 			// Create an instant camera object with the camera device found first.
 			//CInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice());
 			CBaslerUniversalInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice() );
 			INodeMap& nodemap = camera.GetNodeMap();
 			camera.Open();
-			// Get camera device information.
+	/*		
+// Get camera device information.
 			cout << "Camera Device Information" << endl
 			    << "=========================" << endl;
 			cout << "Vendor           : "
@@ -1041,7 +1241,7 @@ public:
         cout << "Camera Device Settings" << endl
             << "======================" << endl;
 
-
+*/
        // Set the AOI:
 
        // Get the integer nodes describing the AOI.
@@ -1050,11 +1250,13 @@ public:
         CIntegerParameter width( nodemap, "Width" );
         CIntegerParameter height( nodemap, "Height" );
 	CFloatParameter exposure(nodemap, "ExposureTime");
+	CFloatParameter gamma(nodemap, "Gamma");
 
         
-        exposure.SetValue(100000.0);
+        exposure.SetValue(340.0);
+	gamma.SetValue(0.55);
        
-
+/*
         cout << "OffsetX          : " << offsetX.GetValue() << endl;
         cout << "OffsetY          : " << offsetY.GetValue() << endl;
         cout << "Width            : " << width.GetValue() << endl;
@@ -1065,7 +1267,7 @@ public:
 		
 			// Print the model name of the camera.
 			cout << "Using device " << camera.GetDeviceInfo().GetModelName() << endl;
-
+*/
 		
 			// The parameter MaxNumBuffer can be used to control the count of buffers
 			// allocated for grabbing. The default value of this parameter is 10.
@@ -1087,8 +1289,13 @@ public:
 
 			// Camera.StopGrabbing() is called automatically by the RetrieveResult() method
 			// when c_countOfImagesToGrab images have been retrieved.
-			while ( !gotit )
+
+			bool infocus = false;
+			int focuscounter = 0;
+
+			while ( !infocus) //!gotit )
 			{
+				cout << "count:" << gotit++ << endl; 
 			    // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
 			    camera.RetrieveResult( 5000, ptrGrabResult, TimeoutHandling_ThrowException);
 
@@ -1096,28 +1303,79 @@ public:
 			    if (ptrGrabResult->GrabSucceeded())
 			    {
 				// Access the image data.
-				cout << "SizeX: " << ptrGrabResult->GetWidth() << endl;
-				cout << "SizeY: " << ptrGrabResult->GetHeight() << endl;
+				//cout << "SizeX: " << ptrGrabResult->GetWidth() << endl;
+				//cout << "SizeY: " << ptrGrabResult->GetHeight() << endl;
 				const uint8_t *pImageBuffer = (uint8_t *) ptrGrabResult->GetBuffer();
-				cout << "Gray value of first pixel: " << (uint32_t) pImageBuffer[0] << endl << endl;
+				//cout << "Gray value of first pixel: " << (uint32_t) pImageBuffer[0] << endl << endl;
 				//camera.StopGrabbing();
-				cout << "Frame#" << gotit << endl;
+				//cout << "Frame#" << gotit << endl;
 
+				
+				//save the frame
 				stringstream number,filename;
 				number << setfill('0') << setw(6) << currentframe;
 				recordTemp(number.str());
 				filename << directory << "frame" << number.str() << ".png";
 
 				CImagePersistence::Save( ImageFileFormat_Png, filename.str().c_str(), ptrGrabResult );				
-				gotit++;
-				incrementFrame(BRIGHTFIELD);//success increment the frame counter if needed
-				return 1;
+				//gotit++;
+				
+				//incrementFrame(BRIGHTFIELD);//success increment the frame counter if needed
+				//return 1;
+				//convert ptrGRab to CV Mat
+				CPylonImage target;
+				Mat dst;
+
+				    CImageFormatConverter converter;
+				    converter.OutputPixelFormat=PixelType_Mono8;
+				    //converter.OutputBitAlignment=OutputBitAlignment_MsbAligned;
+
+				    converter.Convert(target,ptrGrabResult);
+
+				    Mat src_gray(target.GetHeight(),target.GetWidth(),CV_8UC1,target.GetBuffer(),Mat::AUTO_STEP);
+				    imwrite(filename.str(), src_gray, compression_params);
+
+				    if(src_gray.empty())
+				    {
+					cout << "Nope" << endl;
+					return -1;
+				    }
+				    
+
+				   // namedWindow("focus",WINDOW_AUTOSIZE);
+				   // imshow( "focus", src_gray );
+				//just use the center of the image
+				Rect roi(2236, 1324, 1000, 1000);
+				Mat cropped(src_gray, roi);
+				imwrite("/wormbot/cropped.png",cropped,compression_params);
+				//compute focus lap var
+				int kernel_size = 11;
+				int scale = 1;
+				int delta = 0;
+				Laplacian(cropped, dst, CV_64F,kernel_size,scale, delta);
+				Scalar mu, sigma;
+				meanStdDev(dst, mu, sigma);
+				double focusMeasure = sigma.val[0] * sigma.val[0];
+				cout << u8"\033[2J\033[1;1H"; 
+				cout << "focus lapVar = :" << focusMeasure << endl;
+
+				//compute modified lap
+				Mat M = (Mat_<double>(3, 1) << -1, 2, -1);
+				Mat G = getGaussianKernel(3, -1, CV_64F);
+				Mat Lx;
+				sepFilter2D(cropped, Lx, CV_64F, M, G);
+				Mat Ly;
+				sepFilter2D(cropped, Ly, CV_64F, G, M);
+				Mat FM = cv::abs(Lx) + cv::abs(Ly);
+				focusMeasure = cv::mean(FM).val[0];
+				cout << "focus modLap = :" << focusMeasure << endl;
 
 			    }
 			    else
 			    {
 				cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
 			    }
+				
 			}//end while
 		    }
 		    catch (const GenericException &e)
@@ -1132,9 +1390,6 @@ public:
 
 	}//end capture_pylon
 
-//what changed
-//how are you feeling about living with sarah
-//its not your job to tak care of her
 
 
 
@@ -1353,7 +1608,7 @@ public:
 		stringstream cmd("");
 		Timer waittimer;
 
-		cmd << "M" << xval << "," << yval;
+		cmd << "M" << xval << "," << yval << "," << zval;
 		sendCommand(cmd.str());
 
 		cmd.str("");
@@ -1396,6 +1651,8 @@ void raiseBeep(int pulses){
 		}
 	}//end for j
 }//end raise beep
+
+
 
 void setLamp(int intensity){
 	stringstream ls;
@@ -1638,6 +1895,8 @@ void scanExperiments(void) {
 			thisWell->gotoWell();
 			setLamp(255);
 			int captured = 0;
+
+			thisWell->focusCamera();
 			while (captured != 1) {
 				captured = thisWell->capture_pylon(align, CAPTURE_BF);
 				

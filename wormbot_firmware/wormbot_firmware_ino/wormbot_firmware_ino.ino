@@ -14,36 +14,28 @@
  #define RIGHT 4
  #define XAXIS 5
  #define YAXIS 6
+ #define ZAXIS 7 
  
  
- 
- //Declare pin functions on Arduino
-#define stpPinY 23
-#define dirPinY 25
-#define MS1 31
-#define MS2 33
-#define MS3 35
-#define EN  40
+
 
 //pins for steppers
-#define stpT 44
-#define dirT 45
-#define stpB 42
-#define dirB 43
-#define stpL 46
-#define dirL 47
-#define stpR 40
-#define dirR 41
+#define stpX 44
+#define dirX 45
+#define stpZ 40
+#define dirZ 41
+#define stpY 46
+#define dirY 47
+
 
 //pins for limit switches
-#define TXMAX 23
-#define BXMAX 22
-#define TXMIN 25
-#define BXMIN 24
-#define LYMAX 29 
-#define RYMAX 27
-#define LYMIN 28
-#define RYMIN 26
+#define XMAX 23
+#define ZMAX 22
+#define XMIN 25
+#define ZMIN 24
+#define YMAX 29 
+#define YMIN 28
+
 
 #define LAMPPIN 2
 #define GFPPIN 4
@@ -54,11 +46,6 @@
 #define SLOWSPEED 800.0
 #define TIMEOUT_COUNTER 10000000
 
-
-
-#define stpPinX 22
-#define dirPinX 24
-#define ENX 41
 
 #define MINMS 11 //11
 
@@ -90,7 +77,7 @@ int cherryPin = CHERRYPIN;
 
 int tempPin = A1; 
 
-bool DEBUGLIMITS=false;
+bool DEBUGLIMITS=true;
 
 int newmove=false;
 long moveDistance=0;
@@ -112,6 +99,8 @@ MeLimitSwitch ymlimitSwitch(PORT_3,2);
 
 long curr_x=0;
 long curr_y=0;
+long curr_z=0;
+
 long x_max=0;
 long y_max=0;
 
@@ -171,31 +160,40 @@ boolean checkAxisLimit(int axis, int adir){
   
     case XAXIS:
       if (adir==POSITIVE) {
-        if (!digitalRead(TXMAX)) {return true;} 
-        if (!digitalRead(BXMAX)) {return true;}
+        if (!digitalRead(XMAX)) {return true;} 
         return false; //both aren't at limit 
       }//end if positive
       
       if (adir==NEGATIVE) {
-        if (!digitalRead(TXMIN)) {return true;} 
-        if (!digitalRead(BXMIN)) {return true;}
+        if (!digitalRead(XMIN)) {return true;} 
         return false; //both aren't at limit 
       }//end if positive
       break;
       
    case YAXIS:
      if (adir==POSITIVE) {
-        if (!digitalRead(LYMAX)) {return true;} 
-        if (!digitalRead(RYMAX)) {return true;}
+        if (!digitalRead(YMAX)) {return true;} 
         return false; //both aren't at limit 
       }//end if positive
       
       if (adir==NEGATIVE) {
-        if (!digitalRead(LYMIN)) {return true;} 
-        if (!digitalRead(RYMIN)) {return true;}
+        if (!digitalRead(YMIN)) {return true;}
         return false; //both aren't at limit 
       }//end if positive
       break;
+    
+     case ZAXIS:
+      if (adir==POSITIVE) {
+        if (!digitalRead(ZMAX)) {return true;} 
+        return false; //both aren't at limit 
+      }//end if positive
+      
+      if (adir==NEGATIVE) {
+        if (!digitalRead(ZMIN)) {return true;}
+        return false; //both aren't at limit 
+      }//end if positive
+      break;
+    
     
   }//end of switch
   
@@ -218,82 +216,7 @@ void initInverse() {
    // Serial.println(num);
   }
 }
-/*
-void initNormal() {
-  // setup normal distribution
-  double pi = 3.14;
-  double e = 2.72;
-  double a = 2.5 / sqrt(2 * pi);
-  for (int i = 0; i < 100; i++) {
-    double b = -1 * pow(0.03 * i - 1.5, 2) / 2;
-    normal[i] = 1 / (a * pow(e, b));
-    //Serial.println(normal[i]);
-  }
-}
 
-void initQuadratic() {
-  // setup quadratic distribution
-  for (int i = 0; i < 100; i++) {
-    quadratic[i] = (int) (pow(i - 50, 4) / 6000) + 200;
-  }
-}
-*/
-
-/* //june11
-void calibrate() {
-  int ms = MINMS;
-  
-  // find zero
-  digitalWrite(dirPinX,MINUS);
-  delay(ms);
-  digitalWrite(dirPinY,POSITIVE);
-  delay(ms);
-  maxmotorspin=0;  
-  while (!checkLimit(XMIN) && maxmotorspin++ < TIMEOUT_COUNTER){
-    digitalWrite(stpPinX, HIGH);
-    delayMicroseconds(ms);
-    digitalWrite(stpPinX, LOW);
-    delayMicroseconds(ms);
-  }//while not at x==0
-  maxmotorspin=0;
-  while (!checkLimit(YMIN) && maxmotorspin++ < TIMEOUT_COUNTER){
-    digitalWrite(stpPinY, HIGH);
-    delayMicroseconds(ms);
-    digitalWrite(stpPinY, LOW);
-    delayMicroseconds(ms);  
-  }//while not at x==0
-  
-  curr_x = 0;
-  curr_y = 0;
-  
-  // calibrate max
-  digitalWrite(dirPinX,POSITIVE);
-  delay(ms);
-  digitalWrite(dirPinY,MINUS);
-  delay(ms);
-  maxmotorspin=0;
-  while (!checkLimit(XMAX) && maxmotorspin++ < TIMEOUT_COUNTER){
-    digitalWrite(stpPinX, HIGH);
-    delayMicroseconds(ms);
-    digitalWrite(stpPinX, LOW);
-    delayMicroseconds(ms);
-    curr_x++;
-  }//while not at x==max
-  maxmotorspin=0;
-  while (!checkLimit(YMAX) && maxmotorspin++ < TIMEOUT_COUNTER){
-    digitalWrite(stpPinY, HIGH);
-    delayMicroseconds(ms);
-    digitalWrite(stpPinY, LOW);
-    delayMicroseconds(ms);
-    curr_y++;
-  }//while not at y==max
-  
-  x_max = curr_x;
-  y_max = curr_y;
-  
-  goto_machine_zero();
-}
-*/ //june11
 
 void goto_machine_zero(void){
 
@@ -319,23 +242,26 @@ void goto_machine_max(void){
 
 
 void move_to_x(int x) {
-  move_to_xy(x, curr_y);
+  move_to_xyz(x, curr_y, curr_z);
 }
 
 void move_to_y(int y) {
- move_to_xy(curr_x, y);
+ move_to_xyz(curr_x, y, curr_z);
 }
 
+void move_to_z(int z) {
+ move_to_xyz(curr_x, curr_y, z);
+}
 
 void zero_all_axes(void){
   
   //set all motors to negative
-  digitalWrite(dirT,NEGATIVE);
-  digitalWrite(dirB,NEGATIVE);
-  digitalWrite(dirL,NEGATIVE);
-  digitalWrite(dirR,NEGATIVE);
+  digitalWrite(dirX,NEGATIVE);
+  digitalWrite(dirY,NEGATIVE);
+  digitalWrite(dirZ,NEGATIVE);
   
-  boolean allZero,topZero,botZero,leftZero,rightZero = false;
+  
+  boolean allZero,Xzero,Yzero,Zzero = false;
  
   boolean done = false;
   
@@ -343,28 +269,11 @@ void zero_all_axes(void){
   while(!done){
         
   
-    
-
-    
-    //if (!topZero) 
-    if (!checkLimit(TXMIN)) digitalWrite(stpT, HIGH);
-    //if (!botZero) 
-   // if (!checkLimit(BXMIN)) digitalWrite(stpB, HIGH);
-
-   
+    if (!checkLimit(XMIN)) digitalWrite(stpX, HIGH);
     delayMicroseconds(MINMS);
-    
-   //if (!topZero) 
-    if (!checkLimit(TXMIN)) digitalWrite(stpT, LOW);
-    //if (!botZero) 
-    //if (!checkLimit(BXMIN)) digitalWrite(stpB, LOW);
-
-    
+    if (!checkLimit(XMIN)) digitalWrite(stpX, LOW);
     delayMicroseconds(MINMS);
-    
-
-        
-    if (checkLimit(TXMIN)) {
+    if (checkLimit(XMIN)) {
      //Serial.println("all are zero");
         done=true;
     }
@@ -374,29 +283,32 @@ void zero_all_axes(void){
   
   while(!done){
         
-  
     
-
-    
-    
-   // if (!leftZero) 
-    if (!checkLimit(LYMIN)) digitalWrite(stpL, HIGH); 
-   // if (!rightZero) 
-   // if (!checkLimit(RYMIN)) digitalWrite(stpR, HIGH);
-   
-    delayMicroseconds(MINMS);
-
-   // if (!leftZero) 
-    if (!checkLimit(LYMIN)) digitalWrite(stpL, LOW); 
-   // if (!rightZero) 
-   // if (!checkLimit(RYMIN)) digitalWrite(stpR, LOW);
-    
+    if (!checkLimit(YMIN)) digitalWrite(stpY, HIGH); 
+   delayMicroseconds(MINMS);
+    if (!checkLimit(YMIN)) digitalWrite(stpY, LOW); 
     delayMicroseconds(MINMS);
     
 
         
-    if (checkLimit(LYMIN)) {
-     //Serial.println("all are zero");
+    if (checkLimit(YMIN)) {
+        done=true;
+    }
+  }//end while all switches not at zero 
+  
+  done=false;
+  
+  while(!done){
+        
+    
+    if (!checkLimit(ZMIN)) digitalWrite(stpZ, HIGH); 
+   delayMicroseconds(MINMS);
+    if (!checkLimit(ZMIN)) digitalWrite(stpZ, LOW); 
+    delayMicroseconds(MINMS);
+    
+
+        
+    if (checkLimit(ZMIN)) {
         done=true;
     }
   }//end while all switches not at zero 
@@ -405,174 +317,34 @@ void zero_all_axes(void){
   
   curr_x=0;
   curr_y=0;
+  curr_z=0;
   
   
 }//end zero_all axes
 
 
-void max_all_axes(void){
-  
- 
-  
- 
-  while(1){
-        
-         //set all motors to negative
-  digitalWrite(dirT,POSITIVE);
-  digitalWrite(dirB,POSITIVE);
-  digitalWrite(dirL,POSITIVE);
-  digitalWrite(dirR,POSITIVE);
-
-    
-    //if (!topZero) 
-    if (!checkLimit(TXMAX)) {
-      digitalWrite(stpT, HIGH);
-      curr_x++;
-      delayMicroseconds(MINMS);
-      digitalWrite(stpT, LOW);
-            delayMicroseconds(MINMS);
-
-    }
-    if (!checkLimit(BXMAX)) {
-      digitalWrite(stpB, HIGH);
-      
-      delayMicroseconds(MINMS);
-      digitalWrite(stpB, LOW);
-            delayMicroseconds(MINMS);
-
-    }
-    if (!checkLimit(LYMAX)) {
-      digitalWrite(stpL, HIGH);
-      curr_y++;
-      delayMicroseconds(MINMS);
-      digitalWrite(stpL, LOW);
-            delayMicroseconds(MINMS);
-
-    }
-    if (!checkLimit(RYMAX)) {
-      digitalWrite(stpR, HIGH);
-      
-      delayMicroseconds(MINMS);
-      digitalWrite(stpR, LOW);
-            delayMicroseconds(MINMS);
-
-    }
-       
-
- 
-
-        
-    if (checkLimit(TXMAX) && checkLimit(BXMAX) && checkLimit(LYMAX) && checkLimit(RYMAX)) {
-     //Serial.print (curr_x);
-      //Serial.print (",");
-      //Serial.println(curr_y);
-        break;
-    }
-  }//end while all switches not at zero 
-  
-  
-  
-  
-  
-  
-  
-}//end zero_all axes
-
-
-void motion(int motor, long d){
-  
-  int dir=0;
-  
-  if (d < 0) dir =0; //negative
-  if (d > 0) dir =1; //positive
-  
-  int delta =0; //how to increment the movement counter
-  
-  
-  
-  d=abs(d);
-  
-  
-  
-  switch (motor) {
-    
-    case TOP:
-        digitalWrite(dirT,dir);
-     for (int i=0; i < d; i++){
-        digitalWrite(stpT, HIGH);
-        delayMicroseconds(MINMS);
-        digitalWrite(stpT, LOW);
-        delayMicroseconds(MINMS);
-     }//end for each step     
-    
-    
-      break;
-      
-      case XAXIS:
-        digitalWrite(dirT,dir);
-        digitalWrite(dirB,dir);
-        for(int i=0; i < d; i++){
-          digitalWrite(stpT, HIGH);
-          digitalWrite(stpB, HIGH);
-          
-          delayMicroseconds(MINMS);
-          digitalWrite(stpT, LOW);
-          digitalWrite(stpB, LOW);
-          
-          delayMicroseconds(MINMS);
-          
-        }//end while motion left
-        break;
-        
-        case YAXIS:
-        digitalWrite(dirL,dir);
-        digitalWrite(dirR,dir);
-        boolean ltog=false;
-        
-        for(int i=0; i < d; i++){
-          //if (ltog) 
-          digitalWrite(stpL, HIGH);
-          digitalWrite(stpR, HIGH);
-          
-          delayMicroseconds(MINMS);
-          //if (ltog) {
-          digitalWrite(stpL, LOW);
-         // ltog=false;} else ltog=true;
-          digitalWrite(stpR, LOW);
-          
-          delayMicroseconds(MINMS);
-          
-        }//end while motion left
-        break;
-        
-      
-    
-    
-    
-  }//end motor switch
-  
-  
-}//end motion
 
 
 
-
-void move_to_xy(long x, long y) {
+void move_to_xyz(long x, long y, long z) {
  
   long dx = x - curr_x;
   long dy = y - curr_y; 
-  if (dx == 0 && dy == 0) {
+  long dz = z - curr_z;
+  if (dx == 0 && dy == 0 && dz ==0) {
     delay(1);
     return;
   }
   
   int limitSwitchX;
   int limitSwitchY;
+  int limitSwitchZ;
   
   long numStepsX;
   long numStepsY;
+  long numStepsZ;
   
-  int xdir,ydir=0;
+  int xdir,ydir,zdir=0;
   
   if (dx < 0) {
     xdir = NEGATIVE;
@@ -590,17 +362,27 @@ void move_to_xy(long x, long y) {
     numStepsY = dy;
   }
   
+   if (dz < 0) {
+    zdir = NEGATIVE;
+    numStepsZ = -1 * dz;
+  } else {
+    zdir = POSITIVE;
+    numStepsZ = dz;
+  }
+  
   
   long i_x = 0;
   long i_y = 0;
+  long i_z = 0;
   boolean x_reached = (numStepsX == 0) || checkAxisLimit(XAXIS,xdir);
   boolean y_reached = (numStepsY == 0) || checkAxisLimit(YAXIS,ydir);
+  boolean z_reached = (numStepsZ == 0) || checkAxisLimit(ZAXIS,zdir);
+
   
   //set motor directions
-  digitalWrite(dirT,xdir);
-  digitalWrite(dirB,xdir);
-  digitalWrite(dirL,ydir);
-  digitalWrite(dirR,ydir);
+  digitalWrite(dirX,xdir);
+  digitalWrite(dirY,ydir);
+  digitalWrite(dirZ,zdir);
   
  maxmotorspin=0;
  newmove=true;
@@ -612,13 +394,11 @@ void move_to_xy(long x, long y) {
       //else if (i_x > numStepsX - numAccelSteps) ms = inverse[numStepsX - i_x];
       //else                                      ms = inverse[numAccelSteps - 1];
     
-      digitalWrite(stpT, HIGH);
+      digitalWrite(stpX, HIGH);
       delayMicroseconds(MINMS);
-      digitalWrite(stpT, LOW);
+      digitalWrite(stpX, LOW);
       delayMicroseconds(MINMS);
-      digitalWrite(stpB, HIGH);
-      delayMicroseconds(MINMS);
-      digitalWrite(stpB, LOW);
+     
       delayMicroseconds(ms);
       
       i_x++;
@@ -636,17 +416,37 @@ void move_to_xy(long x, long y) {
       //else if (i_y > numStepsY - numAccelSteps) ms = inverse[numStepsY - i_y];
       //else                                      ms = inverse[numAccelSteps - 1];
     
-      digitalWrite(stpL, HIGH);
+      digitalWrite(stpY, HIGH);
       delayMicroseconds(MINMS);
-       digitalWrite(stpL, LOW);
+       digitalWrite(stpY, LOW);
        delayMicroseconds(MINMS);
-      digitalWrite(stpR, HIGH);
-      delayMicroseconds(MINMS);
-      digitalWrite(stpR, LOW);
+      
       delayMicroseconds(ms);
       
       i_y++;
       y_reached = (i_y == numStepsY) || checkAxisLimit(YAXIS,ydir);
+    }
+    
+       delay(MINMS);
+    
+     newmove=true;
+     setMS(newmove,numStepsZ);
+    maxmotorspin=0;
+    while (!z_reached && maxmotorspin++ < TIMEOUT_COUNTER) {
+      int ms=getMS(i_z);
+      //if (i_y < numAccelSteps)                  ms = inverse[i_y];
+      //else if (i_y > numStepsY - numAccelSteps) ms = inverse[numStepsY - i_y];
+      //else                                      ms = inverse[numAccelSteps - 1];
+    
+      digitalWrite(stpZ, HIGH);
+      delayMicroseconds(MINMS);
+       digitalWrite(stpZ, LOW);
+       delayMicroseconds(MINMS);
+      
+      delayMicroseconds(ms);
+      
+      i_z++;
+      z_reached = (i_z == numStepsZ) || checkAxisLimit(ZAXIS,zdir);
     }
     
 
@@ -657,8 +457,13 @@ void move_to_xy(long x, long y) {
   if (dy < 0) curr_y -= i_y;
   else        curr_y += i_y;
   
-  if (checkLimit(TXMIN)) curr_x=0;
-  if (checkLimit(LYMIN)) curr_y=0;
+  if (dz < 0) curr_z -= i_z;
+  else        curr_z += i_z;
+  
+  if (checkLimit(XMIN) && xdir == NEGATIVE) curr_x=0;
+  if (checkLimit(YMIN) && ydir == NEGATIVE) curr_y=0;
+  if (checkLimit(ZMIN) && zdir == NEGATIVE) curr_z=0;
+  
 
   
   
@@ -668,38 +473,6 @@ void move_to_xy(long x, long y) {
 
 
 
-
-
-
-/* //june11
-
-void newMachineZero(void){
-  
-  digitalWrite(dirPinX,MINUS); //set x pin minus
-  while (!checkLimit(XMIN)){
-    
-      digitalWrite(stpPinX, HIGH);
-      delayMicroseconds(MINMS);
-      digitalWrite(stpPinX, LOW);
-      delayMicroseconds(MINMS);
-    
-  }//end while not at x ==0  
-  
-  digitalWrite(dirPinY,MINUS); //set x pin minus
-  while (!checkLimit(YMIN)){
-    
-      digitalWrite(stpPinY, HIGH);
-      delayMicroseconds(MINMS);
-      digitalWrite(stpPinY, LOW);
-      delayMicroseconds(MINMS);
-    
-  }//end while not at y ==0  
-  
-  curr_x=curr_y=0;
-  
-}//end newmachinezero
-
-*/ //june 11
 
 void setLamp(int intensity){
   //if (intensity >= 99) digitalWrite(lampPin, HIGH);
@@ -768,7 +541,7 @@ void quickCalibrate(void){
   
   zero_all_axes();
   delay(3);
-  move_to_xy(8000,8000);
+  move_to_xyz(3000,3000,3000);
   delay(3);
   zero_all_axes();
   
@@ -785,14 +558,13 @@ void setup() {
   Serial.begin(9600);
   
   //setup stepper pins
-  pinMode(stpT, OUTPUT);
-  pinMode(dirT, OUTPUT);
-  pinMode(stpB, OUTPUT);
-  pinMode(dirB, OUTPUT);
-  pinMode(stpL, OUTPUT);
-  pinMode(dirL, OUTPUT);
-  pinMode(stpR, OUTPUT);
-  pinMode(dirR, OUTPUT);
+  pinMode(stpX, OUTPUT);
+  pinMode(dirX, OUTPUT);
+  pinMode(stpY, OUTPUT);
+  pinMode(dirY, OUTPUT);
+  pinMode(stpZ, OUTPUT);
+  pinMode(dirZ, OUTPUT);
+  
     
   
   //setup lamp
@@ -802,14 +574,13 @@ void setup() {
   
  
   //setup limit switches
-  pinMode(TXMAX, INPUT_PULLUP);
-  pinMode(BXMAX, INPUT_PULLUP);
-  pinMode(TXMIN, INPUT_PULLUP);
-  pinMode(BXMIN, INPUT_PULLUP);
-  pinMode(LYMAX, INPUT_PULLUP);
-  pinMode(RYMAX, INPUT_PULLUP);
-  pinMode(LYMIN, INPUT_PULLUP);
-  pinMode(RYMIN, INPUT_PULLUP);
+  pinMode(XMAX, INPUT_PULLUP);
+  pinMode(YMAX, INPUT_PULLUP);
+  pinMode(XMIN, INPUT_PULLUP);
+  pinMode(YMIN, INPUT_PULLUP);
+  pinMode(ZMAX, INPUT_PULLUP);
+  pinMode(ZMIN, INPUT_PULLUP);
+
   
   
   //initNormal();
@@ -819,8 +590,8 @@ void setup() {
   
  // calibrate(); //un comment
  //jasonCalibrate();
- zero_all_axes(); //2020
- quickCalibrate();// 2020
+ //zero_all_axes(); //2020
+ //quickCalibrate();// 2020
  //goto_machine_zero();
  //goto_machine_max();
  //goto_machine_zero();
@@ -854,16 +625,15 @@ Serial.println(c);
 void loop(){
   //CHECK LIMIT SWITCHES
  if (DEBUGLIMITS){ 
-   if (checkLimit(TXMAX)) Serial.println("top X MAX");
-    if (checkLimit(BXMAX)) Serial.println("bot X MAX");
-     if (checkLimit(TXMIN)) Serial.println("top X Min");
-     if (checkLimit(BXMIN)) Serial.println("bot X Min");
-     if (checkLimit(LYMAX)) Serial.println("left y max");
-     if (checkLimit(RYMAX)) Serial.println("right y max");
-     if (checkLimit(LYMIN)) Serial.println("left y min");
-     if (checkLimit(RYMIN)) Serial.println("right y min");
+   if (checkLimit(XMAX)) Serial.println(" X MAX");
+    if (checkLimit(YMAX)) Serial.println("Y MAX");
+     if (checkLimit(XMIN)) Serial.println("X Min");
+     if (checkLimit(YMIN)) Serial.println("Y Min");
+     if (checkLimit(ZMAX)) Serial.println("Z max");
+     if (checkLimit(ZMIN)) Serial.println("Z min");
+ 
 
- }
+ }//end if limit debug
 
   
   
@@ -872,35 +642,16 @@ void loop(){
     //
     
     
-    if (inputString.indexOf("D") >=0){
-      String moveamnt = inputString.substring(inputString.indexOf("D")+1);
-      motion(XAXIS,moveamnt.toInt());
-     // move_px(moveamnt.toInt());
-    } else //end if D
-    if  (inputString.indexOf("A") >=0){
-      String moveamnt = inputString.substring(inputString.indexOf("A")+1);
-      motion(XAXIS,-moveamnt.toInt());
-     // move_mx(moveamnt.toInt());
-    }else //end if A
-    if  (inputString.indexOf("W") >=0){
-      String moveamnt = inputString.substring(inputString.indexOf("W")+1);
-       motion(YAXIS,-moveamnt.toInt());
-     // move_my(moveamnt.toInt());
-    } else //end if W
-    if  (inputString.indexOf("S") >=0){
-      String moveamnt = inputString.substring(inputString.indexOf("S")+1);
-      motion(YAXIS,moveamnt.toInt());
-      //move_py(moveamnt.toInt());
-    } else //end if S 
+   
     if  (inputString.indexOf("ZZ") >=0){
    //   goto_machine_zero();
       //newMachineZero();
       zero_all_axes();
     } else 
     if  (inputString.indexOf("LL") >=0){
-      //newMachineMax();
-      max_all_axes();
-      //goto_machine_max();
+      
+      //max_all_axes();
+      
     } else
     if (inputString.indexOf("CC")>=0){
 	quickCalibrate();
@@ -929,7 +680,10 @@ void loop(){
     if (inputString.indexOf("P")>=0){ 
       Serial.print (curr_x);
       Serial.print (",");
-      Serial.println(curr_y);
+      Serial.print(curr_y);
+      Serial.print (",");
+      Serial.println (curr_z);
+      
     }else //end if p
     if(inputString.indexOf("MX") >=0){
       String moveamnt = inputString.substring(inputString.indexOf("MX")+2);
@@ -937,16 +691,30 @@ void loop(){
       if (mv_x <0) mv_x=0;
       move_to_x(mv_x);
     } //
-    else if(inputString.indexOf("MY") >=0){
+    else
+    if(inputString.indexOf("MZ") >=0){
+      String moveamnt = inputString.substring(inputString.indexOf("MZ")+2);
+      long mv_z=moveamnt.toInt();
+      if (mv_z <0) mv_z=0;
+      move_to_z(mv_z);
+    } //
+    else 
+    if(inputString.indexOf("MY") >=0){
       String moveamnt = inputString.substring(inputString.indexOf("MY")+2);
       long mv_y=moveamnt.toInt();
       if (mv_y <0) mv_y=0;
       move_to_y(mv_y);
-    } else if (inputString.indexOf("M") >= 0 && inputString.indexOf(",") >= 0) {
-      long x = inputString.substring(inputString.indexOf("M") + 1, inputString.indexOf(",")).toInt();
-      String y_str = inputString.substring(inputString.indexOf(",") + 1);
-      long y = y_str.toInt();
-      move_to_xy(x, y);
+    } else
+   
+    if (inputString.indexOf("M") >= 0 && inputString.indexOf(",") >= 0) {
+      String x_str = inputString.substring(inputString.indexOf("M") + 1,  inputString.indexOf(","));
+      long x = x_str.toInt();
+      String noX_str = inputString.substring(inputString.indexOf(",") + 1);
+      long y = noX_str.substring(0,noX_str.indexOf(",")).toInt();
+      long z = noX_str.substring(noX_str.indexOf(",") + 1).toInt();
+      Serial.println(String(x) + "-" + String(y) + "-" + String(z));
+      move_to_xyz(x, y, z);
+      
     }
     
     
