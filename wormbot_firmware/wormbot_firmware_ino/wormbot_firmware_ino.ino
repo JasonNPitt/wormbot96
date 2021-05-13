@@ -32,9 +32,10 @@
 #define XMAX 23
 #define ZMAX 22
 #define XMIN 25
+#define YMIN 28
 #define ZMIN 24
 #define YMAX 29 
-#define YMIN 28
+
 
 
 #define LAMPPIN 2
@@ -47,7 +48,7 @@
 #define TIMEOUT_COUNTER 10000000
 
 
-#define MINMS 11 //11
+#define MINMS 30 //11
 
 #define NEGATIVE 0
 #define POSITIVE 1
@@ -77,7 +78,7 @@ int cherryPin = CHERRYPIN;
 
 int tempPin = A1; 
 
-bool DEBUGLIMITS=true;
+bool DEBUGLIMITS=false;
 
 int newmove=false;
 long moveDistance=0;
@@ -103,48 +104,14 @@ long curr_z=0;
 
 long x_max=0;
 long y_max=0;
+long z_max=0;
 
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;
 
 
 const int smallestDelay = MINMS; // inverse of motor's top speed
-const int numAccelSteps = 1000; // number of steps before reaching top speed 2000
-          
-// distrubtions used in controlling motor speed
-//double normal[100];
-//int quadratic[100];
-int inverse[numAccelSteps];
 
-
-int setMS(boolean isNew, long dist){
- //returns MS for smooth acc and decel
-   int wdelay=MINMS;
-   if (isNew){
-     newmove=false;
-     moveDistance=dist;
-     moveDeccel =moveDistance-ACCELSTEPS; 
-     moveSpeed = SLOWSPEED;
-     
-   }
-   
-  return (wdelay);
-}//end getMS 
-
-int getMS(long currPos){
-  if (currPos < ACCELSTEPS){
-    
-    moveSpeed= moveSpeed/1.01;
-  }else // end if accel phase
-  if (currPos > moveDeccel){
-      moveSpeed=moveSpeed * 1.01;
-  }//end if decel
-  
-  if (moveSpeed < MINMS) moveSpeed =  MINMS;
-  if (moveSpeed > SLOWSPEED) moveSpeed = SLOWSPEED;
-  return ((int)moveSpeed);
-  
-}//end getMS
 
 
 boolean checkLimit(int switchpin){
@@ -182,7 +149,7 @@ boolean checkAxisLimit(int axis, int adir){
       }//end if positive
       break;
     
-     case ZAXIS:
+   case ZAXIS:
       if (adir==POSITIVE) {
         if (!digitalRead(ZMAX)) {return true;} 
         return false; //both aren't at limit 
@@ -201,33 +168,10 @@ boolean checkAxisLimit(int axis, int adir){
 
 // *** Functions for initializing distributions ***
 
-void initInverse() {
-  double a = 10000.0;
-  double b = 4;
-  //double c = a / (numAccelSteps + b) - smallestDelay;
-  
-  for (int i = 0; i < numAccelSteps; i++) {
-   long num = (long) (a / (i + b) );
-   
-  // long num = numAccelSteps  - (i*b);
-   if (num < smallestDelay) num = smallestDelay;
-  
-    inverse[i] = num;
-   // Serial.println(num);
-  }
-}
 
 
-void goto_machine_zero(void){
 
- // move_to_xy(-100,-100);
-  
-  curr_x=0;
-  curr_y=0;
-  //Serial.println(curr_x);
-  //Serial.println(curr_y);
-  
-}//end goto maching zero
+
 
 void goto_machine_max(void){
   
@@ -263,54 +207,63 @@ void zero_all_axes(void){
   
   boolean allZero,Xzero,Yzero,Zzero = false;
  
-  boolean done = false;
+ 
+  Serial.print("xzero:");
+  Serial.println(Xzero);
   
-  
-  while(!done){
+  while(1){
         
   
-    if (!checkLimit(XMIN)) digitalWrite(stpX, HIGH);
+    if (!checkAxisLimit(XAXIS,NEGATIVE)) digitalWrite(stpX, HIGH);
     delayMicroseconds(MINMS);
-    if (!checkLimit(XMIN)) digitalWrite(stpX, LOW);
+    if (!checkAxisLimit(XAXIS,NEGATIVE)) digitalWrite(stpX, LOW);
     delayMicroseconds(MINMS);
-    if (checkLimit(XMIN)) {
-     //Serial.println("all are zero");
-        done=true;
+    if (checkAxisLimit(XAXIS,NEGATIVE)) {
+     Serial.println("x is zero");
+        break;
     }
+    //Serial.println("x while not zero");
   }//end while all switches not at zero 
   
-  done=false;
   
-  while(!done){
+  
+  while(1){
         
     
-    if (!checkLimit(YMIN)) digitalWrite(stpY, HIGH); 
+    if (!checkAxisLimit(YAXIS,NEGATIVE)) digitalWrite(stpY, HIGH); 
    delayMicroseconds(MINMS);
-    if (!checkLimit(YMIN)) digitalWrite(stpY, LOW); 
+    if (!checkAxisLimit(YAXIS,NEGATIVE)) digitalWrite(stpY, LOW); 
     delayMicroseconds(MINMS);
     
 
         
-    if (checkLimit(YMIN)) {
-        done=true;
+    if (checkAxisLimit(YAXIS,NEGATIVE)) {
+        Serial.println("y is zero");
+        break;
     }
+       // Serial.println("y while zero");
+
   }//end while all switches not at zero 
   
-  done=false;
   
-  while(!done){
-        
+  
+  while(1){
+           
     
-    if (!checkLimit(ZMIN)) digitalWrite(stpZ, HIGH); 
+    if (!checkAxisLimit(ZAXIS,NEGATIVE)) {digitalWrite(stpZ, HIGH); } 
    delayMicroseconds(MINMS);
-    if (!checkLimit(ZMIN)) digitalWrite(stpZ, LOW); 
+    if (!checkAxisLimit(ZAXIS,NEGATIVE)) {digitalWrite(stpZ, LOW); } 
     delayMicroseconds(MINMS);
+    
     
 
         
-    if (checkLimit(ZMIN)) {
-        done=true;
+    if (checkAxisLimit(ZAXIS,NEGATIVE)) {
+        Serial.println("z is zero");
+        break;
     }
+        //  Serial.println("z while zero");stuck
+
   }//end while all switches not at zero 
   
   
@@ -318,7 +271,7 @@ void zero_all_axes(void){
   curr_x=0;
   curr_y=0;
   curr_z=0;
-  
+  return;
   
 }//end zero_all axes
 
@@ -383,23 +336,18 @@ void move_to_xyz(long x, long y, long z) {
   digitalWrite(dirX,xdir);
   digitalWrite(dirY,ydir);
   digitalWrite(dirZ,zdir);
-  
- maxmotorspin=0;
- newmove=true;
- setMS(newmove,numStepsX);
+
  
-    while(!x_reached && maxmotorspin++ < TIMEOUT_COUNTER) {
-      int ms =getMS(i_x);
-      //if (i_x < numAccelSteps)                  ms = inverse[i_x];
-      //else if (i_x > numStepsX - numAccelSteps) ms = inverse[numStepsX - i_x];
-      //else                                      ms = inverse[numAccelSteps - 1];
+    while(!x_reached) {
+     
+                                       
     
       digitalWrite(stpX, HIGH);
       delayMicroseconds(MINMS);
       digitalWrite(stpX, LOW);
       delayMicroseconds(MINMS);
      
-      delayMicroseconds(ms);
+      
       
       i_x++;
       x_reached = (i_x == numStepsX) || checkAxisLimit(XAXIS,xdir);
@@ -407,43 +355,29 @@ void move_to_xyz(long x, long y, long z) {
     
     delay(MINMS);
     
-     newmove=true;
-     setMS(newmove,numStepsY);
-    maxmotorspin=0;
-    while (!y_reached && maxmotorspin++ < TIMEOUT_COUNTER) {
-      int ms=getMS(i_y);
-      //if (i_y < numAccelSteps)                  ms = inverse[i_y];
-      //else if (i_y > numStepsY - numAccelSteps) ms = inverse[numStepsY - i_y];
-      //else                                      ms = inverse[numAccelSteps - 1];
+   
+    while (!y_reached) {
+                                       
     
       digitalWrite(stpY, HIGH);
       delayMicroseconds(MINMS);
        digitalWrite(stpY, LOW);
        delayMicroseconds(MINMS);
       
-      delayMicroseconds(ms);
+      
       
       i_y++;
       y_reached = (i_y == numStepsY) || checkAxisLimit(YAXIS,ydir);
     }
     
-       delay(MINMS);
-    
-     newmove=true;
-     setMS(newmove,numStepsZ);
-    maxmotorspin=0;
-    while (!z_reached && maxmotorspin++ < TIMEOUT_COUNTER) {
-      int ms=getMS(i_z);
-      //if (i_y < numAccelSteps)                  ms = inverse[i_y];
-      //else if (i_y > numStepsY - numAccelSteps) ms = inverse[numStepsY - i_y];
-      //else                                      ms = inverse[numAccelSteps - 1];
-    
+    while (!z_reached ) {
+                                           
       digitalWrite(stpZ, HIGH);
       delayMicroseconds(MINMS);
        digitalWrite(stpZ, LOW);
        delayMicroseconds(MINMS);
       
-      delayMicroseconds(ms);
+      
       
       i_z++;
       z_reached = (i_z == numStepsZ) || checkAxisLimit(ZAXIS,zdir);
@@ -586,7 +520,7 @@ void setup() {
   //initNormal();
   //initQuadratic();
   //Serial.println("Initializing movement curves...");
-  initInverse();
+ // initInverse();
   
  // calibrate(); //un comment
  //jasonCalibrate();
@@ -712,7 +646,7 @@ void loop(){
       String noX_str = inputString.substring(inputString.indexOf(",") + 1);
       long y = noX_str.substring(0,noX_str.indexOf(",")).toInt();
       long z = noX_str.substring(noX_str.indexOf(",") + 1).toInt();
-      Serial.println(String(x) + "-" + String(y) + "-" + String(z));
+      //Serial.println(String(x) + "-" + String(y) + "-" + String(z));
       move_to_xyz(x, y, z);
       
     }
