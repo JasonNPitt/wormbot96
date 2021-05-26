@@ -2,7 +2,12 @@
 /* 
  Firmware for the wormbot 3.0
  
-
+top == x
+ bmin= zminP
+ right = zRR
+ left == y
+ lmin == ymin
+ 
  
  */
  
@@ -26,6 +31,9 @@
 #define dirZ 41
 #define stpY 46
 #define dirY 47
+
+
+//pins for limit switches47
 
 
 //pins for limit switches
@@ -75,6 +83,11 @@ unsigned long maxmotorspin=0;
 int lampPin = LAMPPIN; 
 int gfpPin = GFPPIN;
 int cherryPin = CHERRYPIN;
+
+int las1 = 8;
+int las2 =9;
+int las3 =10;
+
 
 int tempPin = A1; 
 
@@ -208,8 +221,8 @@ void zero_all_axes(void){
   boolean allZero,Xzero,Yzero,Zzero = false;
  
  
-  Serial.print("xzero:");
-  Serial.println(Xzero);
+ // Serial.print("xzero:");
+  //Serial.println(Xzero);
   
   while(1){
         
@@ -219,7 +232,7 @@ void zero_all_axes(void){
     if (!checkAxisLimit(XAXIS,NEGATIVE)) digitalWrite(stpX, LOW);
     delayMicroseconds(MINMS);
     if (checkAxisLimit(XAXIS,NEGATIVE)) {
-     Serial.println("x is zero");
+    // Serial.println("x is zero");
         break;
     }
     //Serial.println("x while not zero");
@@ -238,7 +251,7 @@ void zero_all_axes(void){
 
         
     if (checkAxisLimit(YAXIS,NEGATIVE)) {
-        Serial.println("y is zero");
+        //Serial.println("y is zero");
         break;
     }
        // Serial.println("y while zero");
@@ -259,7 +272,7 @@ void zero_all_axes(void){
 
         
     if (checkAxisLimit(ZAXIS,NEGATIVE)) {
-        Serial.println("z is zero");
+       // Serial.println("z is zero");
         break;
     }
         //  Serial.println("z while zero");stuck
@@ -302,14 +315,17 @@ void move_to_xyz(long x, long y, long z) {
   if (dx < 0) {
     xdir = NEGATIVE;
     numStepsX = -1 * dx;
+    
   } else {
     xdir = POSITIVE;
     numStepsX = dx;
+
   }
   
   if (dy < 0) {
     ydir = NEGATIVE;
     numStepsY = -1 * dy;
+
   } else {
     ydir = POSITIVE;
     numStepsY = dy;
@@ -331,11 +347,14 @@ void move_to_xyz(long x, long y, long z) {
   boolean y_reached = (numStepsY == 0) || checkAxisLimit(YAXIS,ydir);
   boolean z_reached = (numStepsZ == 0) || checkAxisLimit(ZAXIS,zdir);
 
-  
+  //if (xdir == NEGATIVE) Serial.println("xneg"); else if (xdir == POSITIVE) Serial.println("xpos");
   //set motor directions
   digitalWrite(dirX,xdir);
+  delayMicroseconds(MINMS);
   digitalWrite(dirY,ydir);
+  delayMicroseconds(MINMS);
   digitalWrite(dirZ,zdir);
+  delayMicroseconds(MINMS);
 
  
     while(!x_reached) {
@@ -498,7 +517,11 @@ void setup() {
   pinMode(dirY, OUTPUT);
   pinMode(stpZ, OUTPUT);
   pinMode(dirZ, OUTPUT);
-  
+  pinMode(42, OUTPUT);
+  pinMode(43, OUTPUT);
+  pinMode(las1, OUTPUT);
+  pinMode(las2, OUTPUT);
+  pinMode(las3, OUTPUT);
     
   
   //setup lamp
@@ -650,8 +673,17 @@ void loop(){
       move_to_xyz(x, y, z);
       
     }
-    
-    
+    else   if(inputString.indexOf("DD") >=0){
+            digitalWrite(las1, HIGH);
+        //    digitalWrite(las2, HIGH);
+
+    //  digitalWrite(las3, HIGH);
+    } 
+    else   if(inputString.indexOf("DN") >=0){
+       digitalWrite(las1, LOW);
+          //  digitalWrite(las2, LOW);
+     // digitalWrite(las3, LOW);
+    } 
     
     //Serial.println(inputString);
     inputString="";
