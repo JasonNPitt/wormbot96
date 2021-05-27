@@ -68,9 +68,9 @@ using namespace GenApi;
 
 #define BLANKUPDATE ",,,,,,,"
 
-#define PORT "/dev/ttyACM0" //This is system-specific"/tmp/interceptty" we need to make this configurable
+#define PORT "/dev/ttyACM2" //This is system-specific"/tmp/interceptty" we need to make this configurable
 
-#define DEFAULTFOCUS 3000
+#define DEFAULTFOCUS 11000
 
 #define MAX_PLATES 12
 #define MAX_WELLS 12
@@ -401,6 +401,35 @@ public:
 
 };
 
+
+
+
+class FocusReading{
+
+	public:
+
+
+	long x,y,z;
+	double focus;
+
+	FocusReading(void){
+		x,y,z=0;
+		focus=-1;
+	}//end constructor
+
+	FocusReading( long pz , double pfocus){
+		z=pz;
+		focus = pfocus;
+	}//end cons
+
+
+};//end class focus reading
+
+bool FocusSort(FocusReading const& left, FocusReading const& right) {
+    if (left.focus != right.focus)
+        return left.focus < right.focus;
+    
+}//end focus sort
 
 class Well {
 public:
@@ -1085,7 +1114,7 @@ public:
 				{
 					
 				    // Wait for an image and then retrieve it. A timeout of 100 ms is used.
-				    camera.RetrieveResult( 100, ptrGrabResult, TimeoutHandling_ThrowException);
+				    camera.RetrieveResult( 5000, ptrGrabResult, TimeoutHandling_ThrowException);
 
 				    // Image grabbed successfully?
 				    if (ptrGrabResult->GrabSucceeded())
@@ -1159,6 +1188,7 @@ public:
 		int zdir = NEGATIVE;
 		vector <double> focusvalues;
 		vector <long> zvals; 
+		vector <FocusReading> foci;
 		int zstepsize = STARTSTEPS;
 		int zwindow = WINDOWSIZE;
 		long zstart = zval - ((zwindow * zstepsize)/2); 
@@ -1176,16 +1206,16 @@ public:
 		for (int i=0; i < zwindow; i++){
 		
 			long znext = zstart + (i * zstepsize);
-			
-			focusvalues.push_back(getFocusMeasure());
-			cmd << "M" << xval << "," << yval << "," << zstart;
+			cmd << "M" << xval << "," << yval << "," << znext;
 			sendCommand(cmd.str());
 			cmd.str("");
-			double thefocus = getFocusMeasure();
-			focusvalues.push_back(thefocus);
-			zvals.push_back(znext);
+			FocusReading thispoint;
+			thispoint.z = znext;
+			thispoint.focus= getFocusMeasure();
+			foci.push_back(thispoint);
+			
 
-			cout << znext << "," << thefocus << endl;
+			cout << thispoint.z << "," << thispoint.focus << endl;
 			
 		
 
@@ -1193,10 +1223,13 @@ public:
 
 
 		zstepsize=16; //0.5 of actual microstep size 32usteps
+		//double maxZ = *max_element(vector.begin(), vector.end());
+
+		sort(foci.begin(), foci.end(), &FocusSort);
 		//fine focus
 		for (int i=0; i < zwindow; i++){
 			
-			
+			cout << "zval:" << foci[i].z << " focus:" << foci[i].focus << endl;
 			
 		
 
@@ -1317,12 +1350,16 @@ public:
 				recordTemp(number.str());
 				filename << directory << "frame" << number.str() << ".png";
 
-				CImagePersistence::Save( ImageFileFormat_Png, filename.str().c_str(), ptrGrabResult );				
+				CImagePersistence::Save( ImageFileFormat_Png, filename.str().c_str(), ptrGrabResult );
+								
 				//gotit++;
 				
-				//incrementFrame(BRIGHTFIELD);//success increment the frame counter if needed
-				//return 1;
-				//convert ptrGRab to CV Mat
+				incrementFrame(BRIGHTFIELD);//success increment the frame counter if needed
+				return 1;
+				
+				//convert ptrGRab to CV Mat old focus stuff
+
+
 				CPylonImage target;
 				Mat dst;
 

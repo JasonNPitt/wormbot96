@@ -547,8 +547,8 @@ void setup() {
   
  // calibrate(); //un comment
  //jasonCalibrate();
- //zero_all_axes(); //2020
- //quickCalibrate();// 2020
+ zero_all_axes(); //2020
+ quickCalibrate();// 2020
  //goto_machine_zero();
  //goto_machine_max();
  //goto_machine_zero();
