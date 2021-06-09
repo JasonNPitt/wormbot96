@@ -70,7 +70,7 @@ using namespace GenApi;
 
 #define PORT "/dev/ttyACM2" //This is system-specific"/tmp/interceptty" we need to make this configurable
 
-#define DEFAULTFOCUS 11000
+#define DEFAULTFOCUS 10000
 
 #define MAX_PLATES 12
 #define MAX_WELLS 12
@@ -1183,12 +1183,13 @@ public:
 	}//end getfocusmeasure
 
 
-	void focusCamera(void){
+	long focusCamera(void){
 
 		int zdir = NEGATIVE;
 		vector <double> focusvalues;
 		vector <long> zvals; 
 		vector <FocusReading> foci;
+		vector <FocusReading> ffoci;
 		int zstepsize = STARTSTEPS;
 		int zwindow = WINDOWSIZE;
 		long zstart = zval - ((zwindow * zstepsize)/2); 
@@ -1226,14 +1227,45 @@ public:
 		//double maxZ = *max_element(vector.begin(), vector.end());
 
 		sort(foci.begin(), foci.end(), &FocusSort);
+		long bestz= foci.back().z;
+		zstart = bestz - ( zwindow/2 * zstepsize);
+		cout << "best z:" << bestz << endl;
+
 		//fine focus
 		for (int i=0; i < zwindow; i++){
 			
-			cout << "zval:" << foci[i].z << " focus:" << foci[i].focus << endl;
+			//cout << "zval:" << foci[i].z << " focus:" << foci[i].focus << endl;
+			long znext = zstart + (i * zstepsize);
+			cmd << "M" << xval << "," << yval << "," << znext;
+			sendCommand(cmd.str());
+			cmd.str("");
+			FocusReading thispoint;
+			thispoint.z = znext;
+			thispoint.focus= getFocusMeasure();
+			ffoci.push_back(thispoint);
+			
+
+			cout << thispoint.z << "," << thispoint.focus << endl;
 			
 		
 
-		}//end for each image
+		}//end for each image focus Z
+
+		//set current z to best
+
+		sort(ffoci.begin(), ffoci.end(), &FocusSort);
+		zval= ffoci.back().z;
+
+		cout << "updated Z =" << zval << endl; 
+
+		
+
+		for (int i=0; i < zwindow; i++){
+			
+			cout << "zval:" << ffoci[i].z << " focus:" << ffoci[i].focus << endl;
+		}
+
+		 
 
 
 
@@ -1934,6 +1966,7 @@ void scanExperiments(void) {
 			int captured = 0;
 
 			thisWell->focusCamera();
+			thisWell->gotoWell(); // goto best focus
 			while (captured != 1) {
 				captured = thisWell->capture_pylon(align, CAPTURE_BF);
 				
