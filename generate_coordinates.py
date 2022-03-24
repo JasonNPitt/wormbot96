@@ -1,7 +1,8 @@
 nums = [1,2,3,4,5,6,7,8,9,10,11,12,12,11,10,9,8,7,6,5,4,3,2,1,1,2,3,4,5,6,7,8,9,10,11,12,12,11,10,9,8,7,6,5,4,3,2,1,1,2,3,4,5,6,7,8,9,10,11,12,12,11,10,9,8,7,6,5,4,3,2,1,1,2,3,4,5,6,7,8,9,10,11,12,12,11,10,9,8,7,6,5,4,3,2,1]
+
 letters = ["A", "B", "C","D","E","F","G","H"]
-x_0 = 6500
-y_0 = 10000
+x_0 = 5200
+y_0 = 11500
 dx_well = 7300
 dy_well = 7300
 dx_plate = 83500
@@ -13,7 +14,7 @@ with open("platecoordinates.dat", "w") as f:
         plate_y = y_0 + (i / 8) * dy_plate
         for j in range(96):
             well_y = plate_y + (j / 12) * dy_well
-            well_x = plate_x + (nums[j] - 1) * dx_well
+            well_x = plate_x + (12 - nums[j]) * dx_well
 
             well = letters[j / 12]
 

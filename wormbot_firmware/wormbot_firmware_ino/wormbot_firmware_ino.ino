@@ -436,17 +436,25 @@ void setLamp(int intensity){
 }//end setLamp
 
 void setGFP(int intensity){
-  //if (intensity >= 99) digitalWrite(lampPin, HIGH);
- // if (intensity <= 0) digitalWrite(lampPin,LOW);
-   analogWrite(gfpPin, intensity);
+  if (intensity >= 99) digitalWrite(las2, HIGH);
+  if (intensity <= 0) digitalWrite(las2,LOW);
+   //analogWrite(gfpPin, intensity);
   
   
 }//end setLamp
 
 void setCherry(int intensity){
-  //if (intensity >= 99) digitalWrite(lampPin, HIGH);
- // if (intensity <= 0) digitalWrite(lampPin,LOW);
-   analogWrite(cherryPin, intensity);
+  if (intensity >= 99) digitalWrite(las3, HIGH);
+  if (intensity <= 0) digitalWrite(las3,LOW);
+  // analogWrite(cherryPin, intensity);
+  
+  
+}//end setLamp
+
+void setUV(int intensity){
+  if (intensity >= 99) digitalWrite(las1, HIGH);
+  if (intensity <= 0) digitalWrite(las1,LOW);
+  // analogWrite(uvPin, intensity);
   
   
 }//end setLamp
@@ -632,6 +640,12 @@ void loop(){
         String lightamount = inputString.substring(inputString.indexOf("CL")+2);
         int lumos = lightamount.toInt();
         setCherry(lumos);
+        
+    } else
+     if (inputString.indexOf("UL") >=0){
+        String lightamount = inputString.substring(inputString.indexOf("UL")+2);
+        int lumos = lightamount.toInt();
+        setUV(lumos);
         
     } else
     if (inputString.indexOf("P")>=0){ 
